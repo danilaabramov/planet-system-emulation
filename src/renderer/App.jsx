@@ -9,14 +9,6 @@ const Hello = () => {
   const M = 1.2166 * 10 ** 30;
   const x0 = 0, y0 = 0;
 
-  const [r, setR] = useState(0);
-  const [x, setX] = useState(40);
-  const [y, setY] = useState(40);
-  const [vx, setVX] = useState(0.1);
-  const [vy, setVY] = useState(1.5);
-  const [ax, setAX] = useState(0);
-  const [ay, setAY] = useState(0);
-
   const animationRef = React.useRef(null);
 
   useEffect(() => {
@@ -58,7 +50,6 @@ const Hello = () => {
       animationRef.current.restart();
     }, 40);
   };
-
 
   return (
     <div style={{ width: "100vh", height: "100vh", backgroundColor: 'black' }}>
