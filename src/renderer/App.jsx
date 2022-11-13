@@ -11,7 +11,20 @@ const Hello = () => {
   const canvas = useRef(null);
   let ctx = null;
 
-  const [planetsStart, setPlanetsStart] = useState(Array(10).fill().map((item, index) => ({
+  const [height, setHeight] = useState(window.innerHeight);
+  const [option, setOption] = useState(false);
+  const [fileWindow, setFileWindow] = useState(false);
+  const [intervals, setIntervals] = useState([]);
+  const [Start, setStart] = useState(false);
+  const [timeCount, setTimeCount] = useState(0);
+  const [vXCount, setVXCount] = useState(0);
+  const [vYCount, setVYCount] = useState(0);
+  const [planetsCount, setPlanetsCount] = useState(10);
+  const [T, setT] = useState(360000);
+
+  const [method, setMethod] = useState(1);
+
+  const [planetsStart, setPlanetsStart] = useState(Array(planetsCount).fill().map((item, index) => ({
     X: 149500000000 * index,
     Y: 0,
     vX: 0,
@@ -20,7 +33,28 @@ const Hello = () => {
     E: 0
   })));
 
-  const [planets, setPlanets] = useState(Array(9).fill().map((item, index) => ({
+  const radius = 140000000000
+
+
+  useEffect(() => {
+    setPlanetsStart(Array(planetsCount).fill().map((item, index) => ({
+      X: 149500000000 * index,
+      Y: 0,
+      vX: 0,
+      vY: index ? Math.sqrt(G * M / 149500000000 / index) : 0,
+      M: index ? index * 6.083 * 10 ** 24 : M,
+      E: 0
+    })));
+  }, [planetsCount]);
+
+  useEffect(() => {
+    let p = JSON.parse(JSON.stringify(planetsStart));
+    setSun(p[0]);
+    p.splice(0, 1);
+    setPlanets(p);
+  }, [...planetsStart]);
+
+  const [planets, setPlanets] = useState(Array(planetsCount ? planetsCount - 1 : 0).fill().map((item, index) => ({
     X: 149500000000 * (index + 1),
     Y: 0,
     vX: 0,
@@ -38,28 +72,35 @@ const Hello = () => {
     E: 0
   });
 
-  useEffect(() => {
-    setSun({ ...planetsStart[0] });
-  }, [planetsStart[0]]);
-
-  useEffect(() => {
-    let p = JSON.parse(JSON.stringify(planetsStart));
-    p.splice(0, 1);
-    setPlanets(p);
+  const widthCanvas = useMemo(() => {
+    let w = 0;
+    for (let i = 0; i < planetsStart.length; ++i)
+      if (w < Math.sqrt(planetsStart[i].X ** 2 + planetsStart[i].Y ** 2))
+        w = Math.sqrt(planetsStart[i].X ** 2 + planetsStart[i].Y ** 2);
+    return w;
   }, [...planetsStart]);
 
-  const [height, setHeight] = useState(window.innerHeight);
-  const [option, setOption] = useState(false);
-  const [intervals, setIntervals] = useState([]);
-  const [Start, setStart] = useState(false);
-  const [timeCount, setTimeCount] = useState(0);
-  const [vXCount, setVXCount] = useState(0);
-  const [vYCount, setVYCount] = useState(0);
-  const [T, setT] = useState(360000);
 
-  const drawRect = (info) => {
+  const minM = useMemo(() => {
+    let m = planetsStart[0].M, i = 0;
+    for (let j = 1; j < planetsStart.length; ++j) if (planetsStart[j].M < m && planetsStart[j].M > 0) {
+      m = planetsStart[j].M;
+      i = j;
+    }
+    return { m, i };
+  }, [...planetsStart, Start]);
+
+  const weightPlanets = useMemo(() => {
+    let k = minM.m / 2;
+    let arr = [];
+    arr.push(sun.M / k);
+    for (let j = 0; j < planets.length; ++j)
+      arr.push(planets[j].M / k);
+    return arr;
+  }, [minM, planets[8].M]);
+
+  const drawCircle = (info) => {
     const { x, y, w } = info;
-
     ctx.beginPath();
     ctx.arc(x, y, w, 0, 2 * Math.PI, false);
     ctx.fillStyle = "lightblue";
@@ -72,7 +113,7 @@ const Hello = () => {
 
   const vx = useMemo(() => {
     let res = 0;
-    let M = 1.2166 * 10 ** 30;
+    let M = sun.M;
     planets.map((item) => {
       res += item.vX * item.M;
       M += item.M;
@@ -82,7 +123,7 @@ const Hello = () => {
 
   const vy = useMemo(() => {
     let res = 0;
-    let M = 1.2166 * 10 ** 30;
+    let M = sun.M;
     planets.map((item) => {
       res += item.vY * item.M;
       M += item.M;
@@ -101,6 +142,7 @@ const Hello = () => {
 
   let P = JSON.parse(JSON.stringify(planetsStart));
 
+
   const start = (index) => {
 
     setTimeCount(0);
@@ -109,10 +151,15 @@ const Hello = () => {
     let aX = 0, aY = 0, vX = P[index].vX, vY = P[index].vY;
     let arr = intervals;
 
+    let aX1 = [0], aY1 = [0];
+    let X1 = [X], Y1 = [Y];
+
+    let flag = true;
+
     const inter = setInterval(() => {
-      drawRect({
+      drawCircle({
         x: height / 2 + height * X / planetsStart[planetsStart.length - 1].X / 2,
-        y: height / 2 + height * Y / planetsStart[planetsStart.length - 1].X / 2, w: 2
+        y: height / 2 + height * Y / planetsStart[planetsStart.length - 1].X / 2, w: weightPlanets[index] < 40 ? weightPlanets[index] / 2 : 20
       });
 
       let p = planets;
@@ -132,6 +179,30 @@ const Hello = () => {
       for (let i = 0; i < P.length; ++i) {
         if (i !== index) {
           let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+
+          if(R < radius){
+            console.log(index, i)
+
+            P[index].vX = (P[index].vX * P[index].M + P[i].vX * P[i].M) / (P[i].M + P[index].M)
+            P[index].vY = (P[index].vY * P[index].M + P[i].vY * P[i].M) / (P[i].M + P[index].M)
+            p[index - 1].vX += P[index].vX
+            p[index - 1].vY += P[index].vY
+
+            P[index].aX = (P[index].aX * P[index].M + P[i].aX * P[i].M) / (P[i].M + P[index].M)
+            P[index].aY = (P[index].aY * P[index].M + P[i].aY * P[i].M) / (P[i].M + P[index].M)
+            p[index - 1].aX += P[index].aX
+            p[index - 1].aY += P[index].aY
+
+            P[index].M += P[i].M
+            p[index - 1].M += P[i].M
+
+            clearInterval(intervals[i]);
+            p.splice(index - 1, 0)
+            P.splice(index, 0)
+
+          }
+
+
           Ep -= G * P[index].M * P[i].M / R;
         }
       }
@@ -139,17 +210,68 @@ const Hello = () => {
       p[index - 1].E = Ek + Ep;
       setPlanets(p);
 
-      [aX, aY] = [0, 0];
-      for (let i = 0; i < P.length; ++i) {
-        if (i !== index) {
-          let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
-          aX += G * P[i].M * (P[i].X - X) / (R ** 3);
-          aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+      if ((method === 0) || (flag && method === 2) || (flag && method === 3)) {
+        [aX, aY] = [0, 0];
+        for (let i = 0; i < P.length; ++i) {
+          if (i !== index) {
+            let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+            aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+            aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+          }
         }
+        ;
+        [X, Y] = [X + T * vX, Y + T * vY];
+        [vX, vY] = [vX + T * aX, vY + T * aY];
+        X1.push(X);
+        Y1.push(Y);
+        aX1.push(aX);
+        aY1.push(aY);
+        flag = false;
       }
+      if (method === 1) {
+        [aX, aY] = [0, 0];
+        for (let i = 0; i < P.length; ++i) {
+          if (i !== index) {
+            let R = Math.sqrt((P[i].X - X) ** 2 + (P[i].Y - Y) ** 2);
+            aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+            aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+          }
+        }
+        ;
 
-      [vX, vY] = [vX + T * aX, vY + T * aY];
-      [X, Y] = [X + T * vX, Y + T * vY];
+        [vX, vY] = [vX + T * aX, vY + T * aY];
+        [X, Y] = [X + T * vX, Y + T * vY];
+      }
+      if ((method === 2) && !flag) {
+        [aX, aY] = [0, 0];
+        for (let i = 0; i < P.length; ++i) {
+          if (i !== index) {
+            let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+            aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+            aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+          }
+        }
+        ;
+
+        [X, Y] = [2 * X1[X1.length - 1] - X1[X1.length - 2] + (T ** 2) * aX, 2 * Y1[Y1.length - 1] - Y1[Y1.length - 2] + (T ** 2) * aY];
+        [vX, vY] = [(X - X1[X1.length - 2]) / (2 * T), (Y - Y1[Y1.length - 2]) / (2 * T)];
+        X1.push(X);
+        Y1.push(Y);
+      }
+      if ((method === 3) && !flag) {
+        [aX, aY] = [0, 0];
+        for (let i = 0; i < P.length; ++i) {
+          if (i !== index) {
+            let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+            aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+            aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+          }
+        }
+        ;
+        aX1.push(aX), aY1.push(aY);
+        [X, Y] = [X + T * vX - 1 / 6 * (4 * aX1[aX1.length - 2] - aX1[aX1.length - 3]) * T ** 2, Y + T * vY - 1 / 6 * (4 * aY1[aY1.length - 2] - aY1[aY1.length - 3]) * T ** 2];
+        [vX, vY] = [vX + 1 / 6 * (2 * aX + 5 * aX1[aX1.length - 1] - aX1[aX1.length - 2]) * T, vY + 1 / 6 * (2 * aY + 5 * aY1[aY1.length - 2] - aY1[aY1.length - 3]) * T];
+      }
 
       if (index === 1) setTimeCount(t => t + T);
     }, 1);
@@ -163,11 +285,16 @@ const Hello = () => {
     let aX = 0, aY = 0, vX = P[0].vX, vY = P[0].vY;
     let arr = intervals;
 
+    let aX1 = [0], aY1 = [0];
+    let X1 = [X], Y1 = [Y];
+
+    let flag = true;
+
     const inter = setInterval(() => {
 
-      drawRect({
+      drawCircle({
         x: height / 2 + height * X / planetsStart[planetsStart.length - 1].X / 2,
-        y: height / 2 + height * Y / planetsStart[planetsStart.length - 1].X / 2, w: 20
+        y: height / 2 + height * Y / planetsStart[planetsStart.length - 1].X / 2, w: weightPlanets[0] < 40 ? weightPlanets[0] / 2 : 20
       });
 
       let s = sun;
@@ -194,20 +321,59 @@ const Hello = () => {
 
       setSun(s);
 
-      [aX, aY] = [0, 0];
-      for (let i = 1; i < P.length; ++i) {
-        let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
-        aX += G * P[i].M * (P[i].X - X) / (R ** 3);
-        aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+      if ((method === 0) || (flag && method === 2)) {
+        [aX, aY] = [0, 0];
+        for (let i = 1; i < P.length; ++i) {
+          let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+          aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+          aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+        }
+        [X, Y] = [X + T * vX, Y + T * vY];
+        [vX, vY] = [vX + T * aX, vY + T * aY];
+        X1.push(X);
+        Y1.push(Y);
+        flag = false;
       }
+      if (method === 1) {
+        [aX, aY] = [0, 0];
+        for (let i = 1; i < P.length; ++i) {
+          let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+          aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+          aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+        }
 
-      [vX, vY] = [vX + T * aX, vY + T * aY];
-      [X, Y] = [X + T * vX, Y + T * vY];
+        [vX, vY] = [vX + T * aX, vY + T * aY];
+        [X, Y] = [X + T * vX, Y + T * vY];
+      }
+      if ((method === 2) && !flag) {
+        [aX, aY] = [0, 0];
+        for (let i = 1; i < P.length; ++i) {
+          let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+          aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+          aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+        }
 
+        [X, Y] = [2 * X1[X1.length - 1] - X1[X1.length - 2] + T ** 2 * aX, 2 * Y1[Y1.length - 1] - Y1[Y1.length - 2] + T ** 2 * aY];
+        [vX, vY] = [(X - X1[X1.length - 2]) / (2 * T), (Y - Y1[Y1.length - 2]) / (2 * T)];
+        X1.push(X);
+        Y1.push(Y);
+      }
+      if ((method === 3) && !flag) {
+        [aX, aY] = [0, 0];
+        for (let i = 1; i < P.length; ++i) {
+          let R = Math.sqrt((X - P[i].X) ** 2 + (Y - P[i].Y) ** 2);
+          aX += G * P[i].M * (P[i].X - X) / (R ** 3);
+          aY += G * P[i].M * (P[i].Y - Y) / (R ** 3);
+        }
+        aX1.push(aX), aY1.push(aY);
+        [X, Y] = [X + T * vX - 1 / 6 * (4 * aX1[aX1.length - 2] - aX1[aX1.length - 3]) * T ** 2, Y + T * vY - 1 / 6 * (4 * aY1[aY1.length - 2] - aY1[aY1.length - 3]) * T ** 2];
+        [vX, vY] = [vX + 1 / 6 * (2 * aX + 5 * aX1[aX1.length - 1] - aX1[aX1.length - 2]) * T, vY + 1 / 6 * (2 * aY + 5 * aY1[aY1.length - 2] - aY1[aY1.length - 3]) * T];
+      }
     }, 1);
     arr.push(inter);
     setIntervals(arr);
   };
+
 
   const finish = () => {
     for (let i = 0; i < intervals.length; ++i)
@@ -227,6 +393,61 @@ const Hello = () => {
 
   return (
     <div style={{ width: "100vw", height: "100vh", display: "flex", overflow: "hidden" }}>
+
+      {
+        fileWindow &&
+        <div style={{
+          position: "absolute",
+          height: "100%",
+          width: "100%",
+          backgroundColor: "rgba(0, 0, 0, .5)",
+          zIndex: 5000
+        }}>
+          <div style={{
+            position: "absolute",
+            height: "20%",
+            width: "20%",
+            backgroundColor: "white",
+            borderRadius: 20,
+            transform: "translateX(-50%) translateY(-50%)",
+            top: "50%",
+            left: "50%",
+            overflowX: "hidden"
+          }}>
+
+
+            <div style={{ borderRadius: 10, padding: 5, width: "100%" }}>
+              <div style={{ height: 30, lineHeight: "30px" }}>
+                Число планет
+              </div>
+
+              <input
+                style={{ display: "flex", width: "calc(100% - 30px)", height: 10 }}
+                type="text"
+                className="writeInput"
+                value={planetsCount}
+                onChange={e => setPlanetsCount(Number(e.target.value) > 1 ? Number(e.target.value) : 2)} />
+
+
+              <div style={{ display: "flex" }}>
+                <button onClick={() => setFileWindow(o => !o)} style={{
+                  margin: "auto",
+                  width: 80,
+                  height: 30,
+                  marginTop: 20,
+                  textAlign: "center",
+                  borderRadius: 20,
+                  backgroundColor: "#9FD0DF",
+                  border: "none"
+                }}>OK
+                </button>
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+      }
 
       {
         option &&
@@ -250,7 +471,7 @@ const Hello = () => {
             overflowX: "hidden"
           }}>
             <div style={{ display: "flex", margin: 5, padding: 5, borderRadius: 10 }}>
-              <div style={{height: 30, lineHeight: "30px", marginRight: 5, marginLeft: 5 }}>
+              <div style={{ height: 30, lineHeight: "30px", marginRight: 5, marginLeft: 5 }}>
                 Шаг по времени
               </div>
 
@@ -261,6 +482,57 @@ const Hello = () => {
                 value={T}
                 onChange={e => setT(Number(e.target.value))} />
             </div>
+
+
+            <div style={{ display: "flex" }}>
+              <div style={{ display: "flex" }}>
+                <div style={{
+                  minWidth: 20,
+                  height: 20,
+                  margin: 5,
+                  background: method === 0 ? "blue" : "gray",
+                  borderRadius: 10,
+                  cursor: "pointer"
+                }} onClick={() => setMethod(0)} />
+                <div style={{ marginTop: 5 }}>Метод Эйлера</div>
+              </div>
+              <div style={{ display: "flex" }}>
+                <div style={{
+                  minWidth: 20,
+                  height: 20,
+                  margin: 5,
+                  background: method === 1 ? "blue" : "gray",
+                  borderRadius: 10,
+                  cursor: "pointer"
+                }} onClick={() => setMethod(1)} />
+                <div style={{ marginTop: 5 }}>Метод Эйлера-Крамера</div>
+              </div>
+            </div>
+            <div style={{ display: "flex" }}>
+              <div style={{ display: "flex" }}>
+                <div style={{
+                  minWidth: 20,
+                  height: 20,
+                  margin: 5,
+                  background: method === 2 ? "blue" : "gray",
+                  borderRadius: 10,
+                  cursor: "pointer"
+                }} onClick={() => setMethod(2)} />
+                <div style={{ marginTop: 5 }}>Метод Верле</div>
+              </div>
+              <div style={{ display: "flex" }}>
+                <div style={{
+                  minWidth: 20,
+                  height: 20,
+                  margin: 5,
+                  background: method === 3 ? "blue" : "gray",
+                  borderRadius: 10,
+                  cursor: "pointer"
+                }} onClick={() => setMethod(3)} />
+                <div style={{ marginTop: 5 }}>Метод Бимана</div>
+              </div>
+            </div>
+
 
             <div style={{ display: "flex", margin: 5, padding: 5, borderRadius: 10 }}>
               <div style={{ width: 20, height: 30, lineHeight: "30px", textAlign: "center" }}>
@@ -298,9 +570,6 @@ const Hello = () => {
                       {index}
                     </div>
                     <div style={{ width: "calc(100% - 20px)", display: "flex" }}>
-                      {/* <div style={{width: '20%'}}> */}
-                      {/*   {item.X} */}
-                      {/* </div> */}
                       <input
                         style={{ width: "20%", height: 10 }}
                         type="number"
@@ -348,24 +617,33 @@ const Hello = () => {
 
       <div style={{ width: "100vh", height: "100vh", backgroundColor: "black" }}>
 
-        <div style={{position: 'absolute', display: 'flex'}}>
-          <button onClick={() => setOption(o => !o)} style={{zIndex: 6000, left: 88 }}>Параметры
+        <div style={{ position: "absolute", display: "flex" }}>
+          <button onClick={() => setFileWindow(o => !o)} style={{ zIndex: 6000, left: 88 }}>Файл
+          </button>
+          <button onClick={() => setOption(o => !o)} style={{ zIndex: 6000, left: 88 }}>Параметры
           </button>
           <button onClick={() => {
             if (Start === false) {
               setStart(true);
+
               const canvasEle = canvas.current;
               canvasEle.width = height;
               canvasEle.height = height;
               ctx = canvasEle.getContext("2d");
+
+              // let ps = JSON.parse(JSON.stringify(planetsStart))
+              // setSun(ps[0])
+              // ps.splice(0, 1)
+              // setPlanets(ps)
+              startSun();
               for (let i = 1; i <= planets.length; ++i)
                 start(i);
-              startSun();
+
             }
           }
-          } style={{zIndex: 6000 }}>Запуск модели
+          } style={{ zIndex: 6000 }}>Запуск модели
           </button>
-          <button onClick={finish} style={{zIndex: 6000, left: 42 }}>Остановить
+          <button onClick={finish} style={{ zIndex: 6000, left: 42 }}>Остановить
           </button>
         </div>
 
@@ -373,11 +651,23 @@ const Hello = () => {
         <div className="sun"
              style={{
                transition: "all 0.02s linear",
-               left: `calc(50% + ${sun.X / planetsStart[planetsStart.length - 1].X * 100 / 2}%)`,
-               top: `calc(50% + ${sun.Y / planetsStart[planetsStart.length - 1].X * 100 / 2}%)`
+               left: `calc(50% + ${sun.X / widthCanvas * 100 / 2}%)`,
+               top: `calc(50% + ${sun.Y / widthCanvas * 100 / 2}%)`
              }}
         >
-          <img src={require("./sun.png")} style={{ objectFit: "cover", height: 40, width: 40 }} />
+
+          {/* <img src={require("./sun.png")}  */}
+          <div style={{
+            position: "relative",
+            top: 20,
+            backgroundColor: "red",
+            objectFit: "cover",
+            borderRadius: 100000,
+            height: weightPlanets[0] < 40 ? weightPlanets[0]: 40,
+            minWidth: weightPlanets[0] < 40 ? weightPlanets[0]: 40,
+            transform: "translateY(-50%)"
+          }}>
+          </div>
         </div>
 
         {
@@ -385,11 +675,24 @@ const Hello = () => {
             return (
               <div className="el" id={`el${index + 1}`}
                    style={{
-                     transition: "all 0.02s linear",
-                     left: `calc(50% + ${item.X / planetsStart[planetsStart.length - 1].X * 100 / 2}%)`,
-                     top: `calc(50% + ${item.Y / planetsStart[planetsStart.length - 1].X * 100 / 2}% - ${20 * index + 40}px)`
+                     transition: "all 0.01s linear",
+                     left: `calc(50% + ${item.X / widthCanvas * 100 / 2}%)`,
+                     top: `calc(50% + ${item.Y / widthCanvas * 100 / 2}% - ${20 * index + 40}px)`
                    }}>
-                <img src={require("./earth.png")} style={{ objectFit: "cover", height: 20, width: 20 }} />
+                {/* <img src={require("./earth.png")}/> */}
+                <div
+                  style={{
+                    position: "relative",
+                    top: 10,
+                    backgroundColor: "red",
+                    borderRadius: 100000,
+                    objectFit: "cover",
+                    height: weightPlanets[index + 1] < 40 ? weightPlanets[index + 1]: 40,
+                    minWidth: weightPlanets[index + 1] < 40 ? weightPlanets[index + 1]: 40,
+                    transform: "translateY(-50%)"
+                  }}
+                >
+                </div>
               </div>
             );
           })

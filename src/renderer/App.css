@@ -18,20 +18,26 @@ body {
   height: 20px;
   width: 20px;
   border-radius: 10px;
+  /*background-color: purple;*/
   transform: translateX(-50%) translateY(-50%);
   z-index: 1000;
+  justify-content: center;
+  align-content: center;
+  display: flex;
 }
 
 .sun {
   position: relative;
-  /*background-color: red;*/
+  /*background-color: #00ff00;*/
   height: 40px;
   width: 40px;
+  /*background-color: purple;*/
   border-radius: 20px;
-  left: 50%;
-  top: 50%;
-  z-index: 1000;
   transform: translateX(-50%) translateY(-50%);
+  z-index: 1000;
+  justify-content: center;
+  align-content: center;
+  display: flex;
 }
 
 .line {
