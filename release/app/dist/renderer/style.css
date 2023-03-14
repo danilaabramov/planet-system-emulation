@@ -1,2 +1,0 @@
-body,html{background:#fff;height:100vh;width:100vw}body{margin:0}.el{border-radius:10px;height:20px;width:20px}.el,.sun{position:relative;transform:translateX(-50%) translateY(-50%);z-index:1000}.sun{border-radius:20px;height:40px;left:50%;top:50%;width:40px}.line{background-color:#add8e6;border-radius:5px;height:5px;left:0;position:relative;top:0;transform:translateX(-50%) translateY(-50%);width:5px}.writeInput{border:.1px solid #a9a9a9;border-radius:10px;box-shadow:0 0 35px #0000001a;font-size:20px;padding:10px;width:calc(100% - 20px)}
-/*# sourceMappingURL=style.css.map*/
